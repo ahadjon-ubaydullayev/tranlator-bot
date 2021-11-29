@@ -28,43 +28,49 @@ def index(request):
 
 def home(request):
 	total_amount = len(BotUsers.objects.all())
-	print(total_amount)
 	return render(request, 'home.html', context={'total_amount':total_amount,})
 
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-	username = message.from_user.username
-	first_name = message.from_user.first_name
-	last_name = message.from_user.last_name
-	new_user = BotUsers.objects.create(username=username, first_name=first_name, last_name=last_name)
-	new_user.save()
-	bot.reply_to(message, "Welcome to Easy Translate bot\nSend me the word that you don't know and will provide you its definitions and pronunciation.\nAlso you can send texts in Uzbek and I will translate it into English.")
+	if len(BotUsers.objects.filter(user_id=message.from_user.id)) == 0:
+		new_user = BotUsers.objects.create(
+			user_id = message.from_user.id,
+			username = message.from_user.username,
+			first_name = message.from_user.first_name,
+			last_name = message.from_user.last_name,
+			)
+		new_user.save()
+	bot.reply_to(message, "Welcome to Easy Translate Bot\nSend me the word that you don't know and will provide you its definitions and pronunciation.\nAlso you can send text in Uzbek and I will translate it into English.\n\n\
+	Easy Translate Botga xush kelibsiz!\nBu botdan siz inglizcha so'zlarning ta'riflarini va talaffuzini topishingiz mumkin. Shuningdek o'zbekcha matnlarni ingliz tiliga tarjima qilishingiz mumkin.\n")
 	print(username, first_name, last_name)
 
 
 @bot.message_handler(commands=['help'])
-def send_welcome(message):
-	bot.reply_to(message, "Send me the word that you don't know and will provide you its definitions and pronunciation.\nAlso you can send texts in Uzbek and I will translate it into English.")
+def send_help(message):
+	bot.reply_to(message, "Welcome to Easy Translate Bot\nSend me the word that you don't know and will provide you its definitions and pronunciation.\nAlso you can send text in Uzbek and I will translate it into English.\n\n\
+	Easy Translate Botga xush kelibsiz!\nBu botdan siz inglizcha so'zlarning ta'riflarini va talaffuzini topishingiz mumkin. Shuningdek o'zbekcha matnlarni ingliz tiliga tarjima qilishingiz mumkin.\n")
 	
 
 @bot.message_handler(func=lambda message: True)
 def english_translate(message):
 	translator = Translator()
 	lang = translator.detect(message.text).lang
-	print(lang)
 	
 	if len(message.text.split()) > 2:
 		dest = 'uz' if lang == 'en' else 'en'
 		bot.send_message(message.from_user.id, translator.translate(message.text, dest).text)
 
+	elif lang == 'uz':
+			word_id = translator.translate(message.text).text
+			if word_id:
+				bot.send_message(message.from_user.id, word_id)
+			else:
+				bot.send_message(message.from_user.id, "Bunday so'z topilmadi😔")
+
 	else:
 		if lang == 'en':
-			word_id = message.text
-		
-		if lang == 'uz':
-			word_id = translator.translate(message.text).text
-			bot.send_message(message.from_user.id, word_id)
+			word_id = message.text	
 		lookup = word_definitions(word_id)
 		
 		if lookup:
@@ -74,7 +80,5 @@ def english_translate(message):
 		        bot.send_audio(message.from_user.id, lookup['audio'])
 		else:
 			bot.send_message(message.from_user.id, "Bunday so'z topilmadi😔")
-
-	
 
 bot.polling()
